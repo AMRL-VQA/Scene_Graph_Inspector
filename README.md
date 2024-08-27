@@ -15,7 +15,7 @@ cd Scene_Graph_Inspector
 pip install -r requirements.txt
 ```
 
-3. 이미지 데이터를 [다운로드]()한 뒤, `Dataset/images` 폴더 안에 압축 풀기
+3. 이미지 데이터를 [다운로드](https://drive.google.com/drive/folders/1H0NwjLpS2OHq-pLTCbIQwOfdDeWkP4OZ?usp=sharing)한 뒤, `Dataset/images` 폴더 안에 압축 풀기
 
 - 예시
 
