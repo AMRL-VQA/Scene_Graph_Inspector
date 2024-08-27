@@ -6,7 +6,8 @@
 
 1. Clone 후, 해당 폴더로 이동
 ```
-
+git clone https://github.com/AMRL-VQA/Scene_Graph_Inspector.git
+cd Scene_Graph_Inspector
 ```
 
 2. 실행에 필요한 패키지 설치
