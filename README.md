@@ -26,7 +26,9 @@ pip install -r requirements.txt
  ┃ ┣ 📜000002.jpg
  ┃ ┣    ⁞
  ┣ 📂json
- ┃ ┗ 📜VQA_data_with_scene_graph-changed-2024-08-27_17-11-40.json
+ ┃ ┗ 📜VQA_data_with_scene_graph(000001~003000)-2024-08-28_04-51-02.json
+ ┃ ┗ 📜VQA_data_with_scene_graph(000001~003000)-2024-08-28_06-52-55.json
+ ┃ ┣    ⁞
  ┗ 📜data.yaml
 ```
 
