@@ -40,3 +40,13 @@ pip install -r requirements.txt
 3. 장면 그래프를 검수 한 뒤, 저장을 위해 `File` → `Save to JSON` 또는 `CTRL + S`을 눌러서 저장한다.
 
 4. 이미지 위의 그려진 선들의 색상이 잘 안보이면, `Random Color` → `Get Random Color` 또는 `CTRL + R`을 눌러서 색상을 변경한다.
+
+## 기타 사항
+
+- 이미지 제작에 사용한 프로그램: ARMA3의 [Eden Editor](https://community.bistudio.com/wiki/Category:Eden_Editor)
+  
+<img
+  src="https://i.namu.wiki/i/EmIh3Am-eSOoMK_Dkw002A5GboINsi5bS1F6Cpy4vGwtqofuMj7_-QkMiqJuVfXoK2DvFXqE1ABJd2wkX3CeKw.webp"
+  width="388.5"
+  height="550"
+/>
