@@ -5,6 +5,7 @@ import json
 import math
 import os
 import threading
+import queue
 import yaml
 import tkinter as tk
 from tkinter import ttk
@@ -19,6 +20,10 @@ class ImageLabelingApp:
         self.root = root
         self.root.title("Image Labeling App")
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+        # Edit Triple 병렬 처리를 위한 Queue 생성
+        self.task_queue = queue.Queue()
+        self.root.after(100, self.process_queue)
 
         # PanedWindow 생성
         self.paned_window = tk.PanedWindow(
@@ -186,6 +191,12 @@ class ImageLabelingApp:
         # 색상 매핑
         self.class_colors = {}
         self.predicate_colors = {}
+
+    def process_queue(self):
+        while not self.task_queue.empty():
+            task = self.task_queue.get()
+            task()
+        self.root.after(100, self.process_queue)
 
     def on_closing(self):
         # json 폴더안에 저장되어 있는 파일들을 확인하여 가장 최근 파일의 시간이 현재 시간과 1분 이상 차이가 나는 경우
@@ -416,32 +427,33 @@ class ImageLabelingApp:
                 )
                 b = subject_y_center - a * subject_x_center
 
+                minimum_margin = 0.005
+
                 # 클릭한 지점이 선분 위에 있는지 확인
-                if min(object_x_center, subject_x_center) <= image_x <= max(
+                if min(object_x_center, subject_x_center) - minimum_margin <= image_x <= max(
                     object_x_center, subject_x_center
-                ) and min(object_y_center, subject_y_center) <= image_y <= max(
+                ) + minimum_margin and min(object_y_center, subject_y_center) - minimum_margin <= image_y <= max(
                     object_y_center, subject_y_center
-                ):
+                ) + minimum_margin:
                     if abs(image_y - (a * image_x + b)) < 0.01:
-                        print(f"Triple: {triple}")
+                        # print(f"Triple: {triple}")
                         # print(
                         #     f"[{image_x}, {image_y}] is on the line connecting ({subject_x_center}, {subject_y_center}) and ({object_x_center}, {object_y_center})"
                         # )
                         clicked_triple.append(triple)
 
         if clicked_triple:
-            # Eidt triple 실행
+            # edit_triple을 Queue에 추가하여 메인 스레드에서 실행되도록 함
             for triple in clicked_triple:
-                threading.Thread(
-                    target=self.edit_triple,
-                    args=(
-                        (
-                            triple["subject_id"],
-                            triple["predicate"],
-                            triple["object_id"],
-                        ),
+                print(f"triple: {triple}")
+                self.root.after_idle(
+                    self.edit_triple,
+                    (
+                        triple["subject_id"],
+                        triple["predicate"],
+                        triple["object_id"],
                     ),
-                ).start()
+                )
 
         # print(f"Clicked at ({image_x}, {image_y})")
 
