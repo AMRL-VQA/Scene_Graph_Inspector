@@ -525,7 +525,10 @@ class ImageLabelingApp:
                     row += 1  # 다음 행으로 이동
 
         if self.last_selected_tab is not None:
-            self.notebook.select(self.last_selected_tab)
+            try:
+                self.notebook.select(self.last_selected_tab)
+            except:
+                pass
 
     def delete_triple(self, triple_key):
         # UI에서 삭제
