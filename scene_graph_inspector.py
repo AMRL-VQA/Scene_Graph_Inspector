@@ -430,22 +430,24 @@ class ImageLabelingApp:
                 minimum_margin = 0.005
 
                 # 클릭한 지점이 선분 위에 있는지 확인
-                if min(object_x_center, subject_x_center) - minimum_margin <= image_x <= max(
-                    object_x_center, subject_x_center
-                ) + minimum_margin and min(object_y_center, subject_y_center) - minimum_margin <= image_y <= max(
-                    object_y_center, subject_y_center
-                ) + minimum_margin:
-                    if abs(image_y - (a * image_x + b)) < 0.01:
-                        # print(f"Triple: {triple}")
-                        # print(
-                        #     f"[{image_x}, {image_y}] is on the line connecting ({subject_x_center}, {subject_y_center}) and ({object_x_center}, {object_y_center})"
-                        # )
+                if (
+                    min(object_x_center, subject_x_center) - minimum_margin
+                    <= image_x
+                    <= max(object_x_center, subject_x_center) + minimum_margin
+                    and min(object_y_center, subject_y_center) - minimum_margin
+                    <= image_y
+                    <= max(object_y_center, subject_y_center) + minimum_margin
+                ):
+                    # print(f"Triple: {triple}")
+                    # 선분과 점 사이의 거리가 0.005 이하인 경우에만 클릭한 것으로 간주
+                    d = abs(a * image_x - image_y + b) / math.sqrt(a ** 2 + 1)
+                    if d <= 0.005:
                         clicked_triple.append(triple)
 
         if clicked_triple:
             # edit_triple을 Queue에 추가하여 메인 스레드에서 실행되도록 함
             for triple in clicked_triple:
-                print(f"triple: {triple}")
+                # print(f"triple: {triple}")
                 self.root.after_idle(
                     self.edit_triple,
                     (
