@@ -4,6 +4,7 @@ import glob
 import json
 import math
 import os
+import threading
 import yaml
 import tkinter as tk
 from tkinter import ttk
@@ -328,6 +329,12 @@ class ImageLabelingApp:
         new_height = int(new_width * aspect_ratio)
         image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
+        # 이미지의 현재 크기와 위치 저장
+        self.image_x = (canvas_width - new_width) // 2
+        self.image_y = (canvas_height - new_height) // 2
+        self.current_image_width = new_width
+        self.current_image_height = new_height
+
         # 레이블 정보 읽기
         image_name = os.path.basename(image_path)
         objects = []
@@ -358,6 +365,85 @@ class ImageLabelingApp:
         self.canvas.create_image(
             canvas_width // 2, canvas_height // 2, anchor=tk.CENTER, image=self.tk_image
         )
+
+        self.canvas.bind("<Button-1>", self.on_image_click)
+
+    def on_image_click(self, event):
+        # 클릭된 지점의 좌표 얻기
+        x = event.x
+        y = event.y
+
+        clicked_triple = []
+
+        # 클릭된 지점이 이미지 내부에 있는지 확인
+        if (
+            self.image_x <= x <= self.image_x + self.current_image_width
+            and self.image_y <= y <= self.image_y + self.current_image_height
+        ):
+            # 이미지 상의 좌표로 변환
+            image_x = x - self.image_x
+            image_y = y - self.image_y
+            image_x /= self.current_image_width
+            image_y /= self.current_image_height
+
+            # 현재 선택된 탭의 이름을 가져옴
+            current_predicate = self.notebook.tab(self.notebook.select(), "text")
+
+            # Subject와 Bounding의 중심 지점을 이은 선분의 방정식을 이용하여 클릭한 지점이 선분 위에 있는지 확인
+            for triple in self.relation_triples:
+                if triple["predicate"] != current_predicate:
+                    continue
+                object = None
+                subject = None
+                for obj in self.objects:
+                    if obj["object_id"] == triple["object_id"]:
+                        object = obj
+                    elif obj["object_id"] == triple["subject_id"]:
+                        subject = obj
+                    if object and subject:
+                        break
+
+                subject_x_center, subject_y_center, subject_width, subject_height = (
+                    subject["bounding_box"]
+                )
+                object_x_center, object_y_center, object_width, object_height = object[
+                    "bounding_box"
+                ]
+
+                # 선분의 방정식: y = ax + b
+                a = (object_y_center - subject_y_center) / (
+                    object_x_center - subject_x_center
+                )
+                b = subject_y_center - a * subject_x_center
+
+                # 클릭한 지점이 선분 위에 있는지 확인
+                if min(object_x_center, subject_x_center) <= image_x <= max(
+                    object_x_center, subject_x_center
+                ) and min(object_y_center, subject_y_center) <= image_y <= max(
+                    object_y_center, subject_y_center
+                ):
+                    if abs(image_y - (a * image_x + b)) < 0.01:
+                        print(f"Triple: {triple}")
+                        # print(
+                        #     f"[{image_x}, {image_y}] is on the line connecting ({subject_x_center}, {subject_y_center}) and ({object_x_center}, {object_y_center})"
+                        # )
+                        clicked_triple.append(triple)
+
+        if clicked_triple:
+            # Eidt triple 실행
+            for triple in clicked_triple:
+                threading.Thread(
+                    target=self.edit_triple,
+                    args=(
+                        (
+                            triple["subject_id"],
+                            triple["predicate"],
+                            triple["object_id"],
+                        ),
+                    ),
+                ).start()
+
+        # print(f"Clicked at ({image_x}, {image_y})")
 
     def draw_relation_triple(self, image):
         draw = ImageDraw.Draw(image)
@@ -583,7 +669,10 @@ class ImageLabelingApp:
         subject_id_label = tk.Label(edit_dialog, text="Subject ID:")
         subject_id_label.grid(row=0, column=0)
         subject_id_entry = ttk.Combobox(
-            edit_dialog, textvariable=subject_id_var, values=self.objects_ids_with_class, width = 30
+            edit_dialog,
+            textvariable=subject_id_var,
+            values=self.objects_ids_with_class,
+            width=30,
         )
         subject_id_entry.grid(row=0, column=1)
 
@@ -810,6 +899,7 @@ class ImageLabelingApp:
 
         # 수정 Dialog 실행
         edit_dialog.mainloop()
+        edit_dialog.focus_set()
 
     def confirm_edit_triple(
         self, triple_key, subject_id, predicate, object_id, edit_dialog
@@ -832,7 +922,8 @@ class ImageLabelingApp:
         # subject_id와 object_id가 동일한 경우 에러 메시지 출력
         if subject_id == object_id:
             messagebox.showerror(
-                title="동일한 ID", message="Subject ID와 Object ID는 동일할 수 없습니다."
+                title="동일한 ID",
+                message="Subject ID와 Object ID는 동일할 수 없습니다.",
             )
 
             # 다이얼로그 화면으로 돌아가기
