@@ -142,6 +142,7 @@ class ImageLabelingApp:
             "located in",
             "holding",
             "carrying",
+            "riding"
         ]
 
         self.relation_triples = (
