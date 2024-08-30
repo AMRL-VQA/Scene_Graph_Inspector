@@ -583,6 +583,17 @@ class ImageLabelingApp:
                 self.predicate_tabs[predicate] = frame
 
                 row = 0  # 행 번호 초기화
+                select_all_var = tk.BooleanVar()
+                select_all_var.set(True)
+                select_all_checkbutton = ttk.Checkbutton(
+                    frame,
+                    text="전체 체크/해제",
+                    variable=select_all_var,
+                    command=lambda p=predicate, v=select_all_var: self.toggle_all_checkbuttons(p,v)
+                )
+                select_all_checkbutton.grid(row=row, column=0, sticky="w")
+                row += 1
+                
                 for triple in triples:
                     var = tk.BooleanVar()
                     var.set(True)
@@ -629,6 +640,12 @@ class ImageLabelingApp:
                 self.notebook.select(self.last_selected_tab)
             except:
                 pass
+
+    def toggle_all_checkbuttons(self, predicate, var):
+        for triple, checkbutton in self.predicate_checkbuttons.items():
+            if triple[1] == predicate:
+                checkbutton.set(var.get())
+        self.display_image()
 
     def delete_triple(self, triple_key):
         # UI에서 삭제
@@ -972,19 +989,26 @@ class ImageLabelingApp:
 
     def uncheck_relation_triples_except_current_tab(self):
         current_tab = self.notebook.select()
+        
+        # 현재 탭의 '전체 체크/해제' 체크 버튼을 항상 체크 상태로 변경
+        for widget in self.notebook.nametowidget(current_tab).winfo_children():
+            if isinstance(widget, ttk.Checkbutton) and widget['text'] == '전체 체크/해제':
+                widget.state(['selected'])
+        
         for tab_id in self.notebook.tabs():
             if tab_id != current_tab:
                 tab_widget = self.notebook.nametowidget(tab_id)
-                for child in tab_widget.winfo_children():
+                for index, child in enumerate(tab_widget.winfo_children()):
                     if isinstance(child, ttk.Checkbutton):
                         try:
-                            self.predicate_checkbuttons[
-                                (
-                                    int(child["text"].split(" - ")[0]),
-                                    child["text"].split(" - ")[1],
-                                    int(child["text"].split(" - ")[2]),
-                                )
-                            ].set(False)
+                            if child['text'] != '전체 체크/해제':
+                                self.predicate_checkbuttons[
+                                    (
+                                        int(child["text"].split(" - ")[0]),
+                                        child["text"].split(" - ")[1],
+                                        int(child["text"].split(" - ")[2]),
+                                    )
+                                ].set(False)
                         except KeyError:
                             pass
             else:
@@ -992,13 +1016,14 @@ class ImageLabelingApp:
                 for child in tab_widget.winfo_children():
                     if isinstance(child, ttk.Checkbutton):
                         try:
-                            self.predicate_checkbuttons[
-                                (
-                                    int(child["text"].split(" - ")[0]),
-                                    child["text"].split(" - ")[1],
-                                    int(child["text"].split(" - ")[2]),
-                                )
-                            ].set(True)
+                            if child['text'] != '전체 체크/해제':
+                                self.predicate_checkbuttons[
+                                    (
+                                        int(child["text"].split(" - ")[0]),
+                                        child["text"].split(" - ")[1],
+                                        int(child["text"].split(" - ")[2]),
+                                    )
+                                ].set(True)
                         except KeyError:
                             pass
         self.display_image()
