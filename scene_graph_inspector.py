@@ -1008,9 +1008,20 @@ class ImageLabelingApp:
         # 현재 선택된 탭 저장
         self.last_selected_tab = self.notebook.index(self.notebook.select())
 
-        # 중복 여부 확인
         new_triple_key = (int(subject_id), predicate, int(object_id))
-        if new_triple_key in self.predicate_checkbuttons:
+        # 수정 여부 확인
+        if triple_key == new_triple_key:
+            error_message = messagebox.showerror(
+                title="수정되지 않은 Triple",
+                message="아무런 수정도 이루어지지 않았습니다!",
+            )
+            # 에러 메시지 출력 확인 버튼 눌릴 시, edit_dialog에 포커스를 맞춤
+            if error_message == "ok":
+                edit_dialog.focus_set()
+            return
+
+        # 중복 여부 확인
+        elif new_triple_key in self.predicate_checkbuttons:
             # 중복된 triple_key가 있을 경우 에러 메시지 출력창을 띄움. 이떄 에러 메시지 출력창에는 확인 버튼과 삭제 버튼이 있음.
             error_dialog = tk.Toplevel(edit_dialog)
             error_dialog.title("중복된 Triple")
@@ -1095,8 +1106,18 @@ class ImageLabelingApp:
                         triple["object_id"] = int(object_id)
                 break
 
-        # 수정 Dialog 종료
+        # 수정 Dialog 종료치
+        self.open_dialogs.remove(edit_dialog)
         edit_dialog.destroy()
+
+        # 만약 열린 edit_dialog가 남아있다면 마지막으로 열린 Dialog에 포커스를 맞춤
+        if self.open_dialogs:
+            # print("focus_set on last dialog")
+            self.root.after(100, lambda: self.open_dialogs[-1].focus_set())
+        else:
+            # 남아있는 edit_dialog가 없다면 메인 창에 포커스를 맞춤
+            # print("focus_set on root")
+            self.root.after(100, lambda: self.root.focus_set())
 
         # 이미지 다시 그리기
         self.relation_triple_info_initialized = False
