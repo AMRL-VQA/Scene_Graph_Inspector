@@ -7,6 +7,7 @@ import os
 import threading
 import queue
 import yaml
+import sys
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog, messagebox
@@ -57,12 +58,12 @@ class ImageLabelingApp:
         self.top_frame.pack(side=tk.TOP, fill=tk.X)
 
         # 이전 이미지로 이동하는 버튼
-        self.prev_button = tk.Button(
+        self.prev_button = ttk.Button(
             self.top_frame,
             text="Previous",
             command=self.show_previous_image,
             width=10,
-            height=3,
+            padding=(20, 30),
         )
         self.prev_button.pack(side=tk.LEFT)
 
@@ -73,12 +74,12 @@ class ImageLabelingApp:
         self.image_name_label.pack(side=tk.LEFT, expand=True)
 
         # 다음 이미지로 이동하는 버튼
-        self.next_button = tk.Button(
+        self.next_button = ttk.Button(
             self.top_frame,
             text="Next",
             command=self.show_next_image,
             width=10,
-            height=3,
+            padding=(20, 30),
         )
         self.next_button.pack(side=tk.RIGHT)
 
@@ -161,10 +162,10 @@ class ImageLabelingApp:
         self.file_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="File", menu=self.file_menu)
         self.file_menu.add_command(
-            label="Open Folder [CTRL + o]", command=self.open_folder
+            label="Open Folder [CTRL + O]", command=self.open_folder
         )
         self.file_menu.add_command(
-            label="Save to JSON [CTRL + s]", command=self.save_to_json
+            label="Save to JSON [CTRL + S]", command=self.save_to_json
         )
 
         # Ctrl + S 키 조합을 save_to_json 함수에 바인딩
@@ -173,13 +174,15 @@ class ImageLabelingApp:
         self.root.bind(
             "<Control-r>", lambda event: self.class_and_predicate_random_color()
         )
-        # Ctrl + o 키 조합을 open_folder 함수에 바인딩
+        # Ctrl + O 키 조합을 open_folder 함수에 바인딩
         self.root.bind("<Control-o>", lambda event: self.open_folder())
+        # Ctrl + A 키 조합을 toggle_all_checkbuttons_with_shortcut 함수에 바인딩
+        self.root.bind("<Control-a>", lambda event: self.toggle_all_checkbuttons_with_shortcut())
 
         self.random_color_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Random Color", menu=self.random_color_menu)
         self.random_color_menu.add_command(
-            label="Get Random Color [CTRL + r]",
+            label="Get Random Color [CTRL + R]",
             command=self.class_and_predicate_random_color,
         )
 
@@ -192,6 +195,12 @@ class ImageLabelingApp:
         # 색상 매핑
         self.class_colors = {}
         self.predicate_colors = {}
+
+        # 전체 체크/해제 체크버튼 변수
+        self.checkbox_vars = {}
+
+        # 열린 edit_dialog 창들을 추적하기 위한 리스트
+        self.open_dialogs = []
 
     def process_queue(self):
         while not self.task_queue.empty():
@@ -423,10 +432,15 @@ class ImageLabelingApp:
                 ]
 
                 # 선분의 방정식: y = ax + b
-                a = (object_y_center - subject_y_center) / (
-                    object_x_center - subject_x_center
-                )
-                b = subject_y_center - a * subject_x_center
+                # Divide by Zero 예방
+                if object_x_center  == subject_x_center:
+                    a = (object_y_center - subject_y_center) / sys.float_info.epsilon
+                    b = subject_y_center - a * subject_x_center
+                else:
+                    a = (object_y_center - subject_y_center) / (
+                        object_x_center - subject_x_center
+                    )
+                    b = subject_y_center - a * subject_x_center
 
                 minimum_margin = 0.005
 
@@ -569,6 +583,7 @@ class ImageLabelingApp:
             self.notebook.forget(tab_id)
         self.predicate_tabs.clear()
         self.predicate_checkbuttons.clear()
+        self.checkbox_vars.clear()
 
         for predicate in self.predicates:
             # print(f"Processing predicate: {predicate}")  # 디버깅 출력
@@ -586,15 +601,16 @@ class ImageLabelingApp:
                 row = 0  # 행 번호 초기화
                 select_all_var = tk.BooleanVar()
                 select_all_var.set(True)
+                self.checkbox_vars[predicate] = select_all_var
                 select_all_checkbutton = ttk.Checkbutton(
                     frame,
                     text="전체 체크/해제",
                     variable=select_all_var,
-                    command=lambda p=predicate, v=select_all_var: self.toggle_all_checkbuttons(p,v)
+                    command=lambda p=predicate, v=self.checkbox_vars[predicate] : self.toggle_all_checkbuttons(p,v)
                 )
                 select_all_checkbutton.grid(row=row, column=0, sticky="w")
                 row += 1
-                
+
                 for triple in triples:
                     var = tk.BooleanVar()
                     var.set(True)
@@ -641,12 +657,27 @@ class ImageLabelingApp:
                 self.notebook.select(self.last_selected_tab)
             except:
                 pass
+        else:
+            # 첫번쨰 탭 선택 및 포커스 후 짥은 시간 대기
+            self.notebook.select(0)
+            self.root.after(100, lambda: self.notebook.focus_set())
 
     def toggle_all_checkbuttons(self, predicate, var):
         for triple, checkbutton in self.predicate_checkbuttons.items():
             if triple[1] == predicate:
                 checkbutton.set(var.get())
         self.display_image()
+
+    def toggle_all_checkbuttons_with_shortcut(self):
+        current_predicate = self.notebook.tab(self.notebook.select(), "text")
+        # print(f"Current predicate: {current_predicate}")
+        # print(f"Initizlized: {self.relation_triple_info_initialized}")
+        var = self.checkbox_vars[current_predicate]
+        var.set(not var.get())
+        self.checkbox_vars[current_predicate] = var
+        # print(var.get())
+        # self.notebook.unbind("<<NotebookTabChanged>>")
+        self.toggle_all_checkbuttons(current_predicate, var)
 
     def delete_triple(self, triple_key):
         # UI에서 삭제
@@ -688,6 +719,10 @@ class ImageLabelingApp:
         # 수정 Dialog 생성
         edit_dialog = tk.Toplevel(self.root)
         edit_dialog.title("Triple 수정")
+        edit_dialog.focus_set()
+
+        # 열린 Dialog 창을 리스트에 추가
+        self.open_dialogs.append(edit_dialog)
 
         # 수정할 subject_id, predicate, object_id 입력 칸 생성
         # 각각의 입력 칸은 기본값으로 기존 값이 들어가도록 함
@@ -737,7 +772,7 @@ class ImageLabelingApp:
 
         # 이미지 보여주는 캔버스 생성 후 Dialog에 추가. 이때 이미지는 1280x720 크기로 resize
         canvas = tk.Canvas(edit_dialog, width=1280, height=720)
-        canvas.grid(row=3, column=0, columnspan=2)
+        canvas.grid(row=3, column=0, columnspan=4)
         tk_image = ImageTk.PhotoImage(image.resize((1280, 720)))
         canvas.create_image(640, 360, image=tk_image)
 
@@ -913,9 +948,25 @@ class ImageLabelingApp:
         predicate_var.trace_add("write", update_image)
         object_id_var.trace_add("write", update_image)
 
+        # 수정 Dialog의 닫을때 실행되는 함수
+        def close_edit_dialog():
+            # Dialog가 닫힐 때 open_dialogs 리스트에서 해당 Dialog를 제거
+            print("close_edit_dialog")
+            self.open_dialogs.remove(edit_dialog)
+            edit_dialog.destroy()
+
+            # 만약 열린 edit_dialog가 남아있다면 마지막으로 열린 Dialog에 포커스를 맞춤
+            if self.open_dialogs:
+                # print("focus_set on last dialog")
+                self.root.after(100, lambda: self.open_dialogs[-1].focus_set())
+            else:
+                # 남아있는 edit_dialog가 없다면 메인 창에 포커스를 맞춤
+                # print("focus_set on root")
+                self.root.after(100, lambda: self.root.focus_set())
+
         # 수정 Dialog의 확인 버튼 생성
         # 확인 버튼을 누르면 수정된 값으로 triple_key를 수정하고, 이미지를 다시 그림
-        confirm_button = tk.Button(
+        confirm_button = ttk.Button(
             edit_dialog,
             text="확인",
             command=lambda: self.confirm_edit_triple(
@@ -927,11 +978,29 @@ class ImageLabelingApp:
             ),
         )
 
-        confirm_button.grid(row=4, column=0, columnspan=2)
+        confirm_button.grid(row=1, column=2)
+
+        # edit_dialog 닫기 버튼 설정 시 close_edit_dialog 호출
+        edit_dialog.protocol("WM_DELETE_WINDOW", close_edit_dialog)
+
+        def swap_subject_and_object(subject_id_var, object_id_var):
+            tmp_subject_id = subject_id_var.get()
+            subject_id_var.set(object_id_var.get())
+            object_id_var.set(tmp_subject_id)
+
+        reverse_arrow_button = ttk.Button(
+            edit_dialog,
+            text="화살표 방향 전환",
+            command=lambda: swap_subject_and_object(subject_id_var, object_id_var)
+        )
+
+        reverse_arrow_button.grid(row=1, column=3)
+
+        # Enter 키를 누르면 confirm_button이 클릭되도록 설정
+        edit_dialog.bind("<Return>", lambda event: confirm_button.invoke())
 
         # 수정 Dialog 실행
         edit_dialog.mainloop()
-        edit_dialog.focus_set()
 
     def confirm_edit_triple(
         self, triple_key, subject_id, predicate, object_id, edit_dialog
@@ -942,13 +1011,58 @@ class ImageLabelingApp:
         # 중복 여부 확인
         new_triple_key = (int(subject_id), predicate, int(object_id))
         if new_triple_key in self.predicate_checkbuttons:
-            # 중복된 triple_key가 있을 경우 에러 메시지 출력
-            messagebox.showerror(
-                title="중복된 Triple", message="이미 존재하는 Triple입니다."
+            # 중복된 triple_key가 있을 경우 에러 메시지 출력창을 띄움. 이떄 에러 메시지 출력창에는 확인 버튼과 삭제 버튼이 있음.
+            error_dialog = tk.Toplevel(edit_dialog)
+            error_dialog.title("중복된 Triple")
+            error_dialog.geometry("300x100")
+
+            error_label = tk.Label(
+                error_dialog,
+                text="이미 존재하는 Triple입니다.",
+                font=("Helvetica", 12),
+            )
+            error_label.pack(pady=10)
+            # 돌아가기 버튼을 누르면 에러 메시지 출력창을 닫고 edit_dialog에 포커스를 맞춤
+            def close_error_dialog():
+                error_dialog.destroy()
+                edit_dialog.focus_set()
+
+            confirm_button = ttk.Button(
+                error_dialog,
+                text="돌아가기",
+                command=close_error_dialog,
             )
 
-            # 다이얼로그 화면으로 돌아가기
-            edit_dialog.focus_set()
+            # 삭제 버튼을 누르면 기존의 triple_key를 삭제하고, edit_dialog와 에러 메시지 출력창을 닫음
+            def delete_triple_and_close():
+                self.delete_triple(triple_key)
+                error_dialog.destroy()
+                self.open_dialogs.remove(edit_dialog)
+                edit_dialog.destroy()
+
+                # 만약 열린 edit_dialog가 남아있다면 마지막으로 열린 Dialog에 포커스를 맞춤
+                if self.open_dialogs:
+                    # print("focus_set on last dialog")
+                    self.root.after(100, lambda: self.open_dialogs[-1].focus_set())
+                else:
+                    # 남아있는 edit_dialog가 없다면 메인 창에 포커스를 맞춤
+                    # print("focus_set on root")
+                    self.root.after(100, lambda: self.root.focus_set())
+
+            delete_button = ttk.Button(
+                error_dialog,
+                text="수정 전 Triple 삭제",
+                command=delete_triple_and_close,
+            )
+
+            # 확인버튼과 삭제버튼을 에러 메시지 출력창에 배치
+            confirm_button.pack(side="left", padx=10)
+            delete_button.pack(side="right", padx=10)
+
+            # Enter 키를 누르면 confirm_button이 클릭되도록 설정
+            error_dialog.bind("<Return>", lambda event: confirm_button.invoke())
+
+            error_dialog.focus_set()
             return
 
         # subject_id와 object_id가 동일한 경우 에러 메시지 출력
@@ -990,12 +1104,12 @@ class ImageLabelingApp:
 
     def uncheck_relation_triples_except_current_tab(self):
         current_tab = self.notebook.select()
-        
+
         # 현재 탭의 '전체 체크/해제' 체크 버튼을 항상 체크 상태로 변경
         for widget in self.notebook.nametowidget(current_tab).winfo_children():
             if isinstance(widget, ttk.Checkbutton) and widget['text'] == '전체 체크/해제':
                 widget.state(['selected'])
-        
+
         for tab_id in self.notebook.tabs():
             if tab_id != current_tab:
                 tab_widget = self.notebook.nametowidget(tab_id)
