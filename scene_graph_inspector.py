@@ -143,7 +143,7 @@ class ImageLabelingApp:
             "located in",
             "holding",
             "carrying",
-            "riding"
+            "riding",
         ]
 
         self.relation_triples = (
@@ -177,7 +177,9 @@ class ImageLabelingApp:
         # Ctrl + O 키 조합을 open_folder 함수에 바인딩
         self.root.bind("<Control-o>", lambda event: self.open_folder())
         # Ctrl + A 키 조합을 toggle_all_checkbuttons_with_shortcut 함수에 바인딩
-        self.root.bind("<Control-a>", lambda event: self.toggle_all_checkbuttons_with_shortcut())
+        self.root.bind(
+            "<Control-a>", lambda event: self.toggle_all_checkbuttons_with_shortcut()
+        )
 
         self.random_color_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Random Color", menu=self.random_color_menu)
@@ -433,7 +435,7 @@ class ImageLabelingApp:
 
                 # 선분의 방정식: y = ax + b
                 # Divide by Zero 예방
-                if object_x_center  == subject_x_center:
+                if object_x_center == subject_x_center:
                     a = (object_y_center - subject_y_center) / sys.float_info.epsilon
                     b = subject_y_center - a * subject_x_center
                 else:
@@ -455,7 +457,7 @@ class ImageLabelingApp:
                 ):
                     # print(f"Triple: {triple}")
                     # 선분과 점 사이의 거리가 0.005 이하인 경우에만 클릭한 것으로 간주
-                    d = abs(a * image_x - image_y + b) / math.sqrt(a ** 2 + 1)
+                    d = abs(a * image_x - image_y + b) / math.sqrt(a**2 + 1)
                     if d <= 0.005:
                         clicked_triple.append(triple)
 
@@ -573,6 +575,32 @@ class ImageLabelingApp:
                     width=3,
                 )
 
+                # Draw Attribute left above to the bounding box
+                font = ImageFont.truetype("arial.ttf", 20)
+                # If attribute is one of 'One-story Building', 'Two-story Builindg', 'Three-story Building', 'Four-stroy Building', 'Multi-story Building', 'Flying', 'Landed'
+                if object["attribute"] and (
+                    object["attribute"][0] in ["Flying", "Landed"]
+                    or object["class"].lower() == "building"
+                ):
+                    attribute = object["attribute"][0]
+                    draw.text(
+                        (object_x1, object_y1 - 22),
+                        attribute,
+                        fill=self.class_colors[object["class"]],
+                        font=font,
+                    )
+                if subject["attribute"] and (
+                    subject["attribute"][0] in ["Flying", "Landed"]
+                    or subject["class"].lower() == "building"
+                ):
+                    attribute = subject["attribute"][0]
+                    draw.text(
+                        (subject_x1, subject_y1 - 22),
+                        attribute,
+                        fill=self.class_colors[subject["class"]],
+                        font=font,
+                    )
+
         self.tk_image = ImageTk.PhotoImage(image)
 
     def display_relation_triples(self):
@@ -606,7 +634,9 @@ class ImageLabelingApp:
                     frame,
                     text="전체 체크/해제",
                     variable=select_all_var,
-                    command=lambda p=predicate, v=self.checkbox_vars[predicate] : self.toggle_all_checkbuttons(p,v)
+                    command=lambda p=predicate, v=self.checkbox_vars[
+                        predicate
+                    ]: self.toggle_all_checkbuttons(p, v),
                 )
                 select_all_checkbutton.grid(row=row, column=0, sticky="w")
                 row += 1
@@ -775,6 +805,7 @@ class ImageLabelingApp:
         canvas.grid(row=3, column=0, columnspan=4)
         tk_image = ImageTk.PhotoImage(image.resize((1280, 720)))
         canvas.create_image(640, 360, image=tk_image)
+        font = ImageFont.truetype("arial.ttf", 20)
 
         # 이미지에 subject_id, object_id에 해당하는 bounding box 그리기
         for obj in self.objects:
@@ -791,6 +822,17 @@ class ImageLabelingApp:
                     outline=self.class_colors[obj["class"]],
                     width=3,
                 )
+                if obj["attribute"] and (
+                    obj["attribute"][0] in ["Flying", "Landed"]
+                    or obj["class"].lower() == "building"
+                ):
+                    attribute = obj["attribute"][0]
+                    draw.text(
+                        (subject_x1, subject_y1 - 22),
+                        attribute,
+                        fill=self.class_colors[obj["class"]],
+                        font=font,
+                    )
             if obj["object_id"] == int(object_id_var.get().split(": ")[1]):
                 object_x_center, object_y_center, object_width, object_height = obj[
                     "bounding_box"
@@ -804,6 +846,17 @@ class ImageLabelingApp:
                     outline=self.class_colors[obj["class"]],
                     width=3,
                 )
+                if obj["attribute"] and (
+                    obj["attribute"][0] in ["Flying", "Landed"]
+                    or obj["class"].lower() == "building"
+                ):
+                    attribute = obj["attribute"][0]
+                    draw.text(
+                        (object_x1, object_y1 - 22),
+                        attribute,
+                        fill=self.class_colors[obj["class"]],
+                        font=font,
+                    )
 
         abs_subject_x_center = subject_x_center * image.width
         abs_subject_y_center = subject_y_center * image.height
@@ -876,6 +929,17 @@ class ImageLabelingApp:
                         outline=self.class_colors[obj["class"]],
                         width=3,
                     )
+                    if obj["attribute"] and (
+                        obj["attribute"][0] in ["Flying", "Landed"]
+                        or obj["class"].lower() == "building"
+                    ):
+                        attribute = obj["attribute"][0]
+                        draw.text(
+                            (subject_x1, subject_y1 - 22),
+                            attribute,
+                            fill=self.class_colors[obj["class"]],
+                            font=font,
+                        )
                 if obj["object_id"] == int(object_id_var.get().split(": ")[1]):
                     object_x_center, object_y_center, object_width, object_height = obj[
                         "bounding_box"
@@ -889,6 +953,17 @@ class ImageLabelingApp:
                         outline=self.class_colors[obj["class"]],
                         width=3,
                     )
+                    if obj["attribute"] and (
+                        obj["attribute"][0] in ["Flying", "Landed"]
+                        or obj["class"].lower() == "building"
+                    ):
+                        attribute = obj["attribute"][0]
+                        draw.text(
+                            (object_x1, object_y1 - 22),
+                            attribute,
+                            fill=self.class_colors[obj["class"]],
+                            font=font,
+                        )
 
             abs_subject_x_center = subject_x_center * image.width
             abs_subject_y_center = subject_y_center * image.height
@@ -951,7 +1026,7 @@ class ImageLabelingApp:
         # 수정 Dialog의 닫을때 실행되는 함수
         def close_edit_dialog():
             # Dialog가 닫힐 때 open_dialogs 리스트에서 해당 Dialog를 제거
-            print("close_edit_dialog")
+            # print("close_edit_dialog")
             self.open_dialogs.remove(edit_dialog)
             edit_dialog.destroy()
 
@@ -991,7 +1066,7 @@ class ImageLabelingApp:
         reverse_arrow_button = ttk.Button(
             edit_dialog,
             text="화살표 방향 전환",
-            command=lambda: swap_subject_and_object(subject_id_var, object_id_var)
+            command=lambda: swap_subject_and_object(subject_id_var, object_id_var),
         )
 
         reverse_arrow_button.grid(row=1, column=3)
@@ -1033,6 +1108,7 @@ class ImageLabelingApp:
                 font=("Helvetica", 12),
             )
             error_label.pack(pady=10)
+
             # 돌아가기 버튼을 누르면 에러 메시지 출력창을 닫고 edit_dialog에 포커스를 맞춤
             def close_error_dialog():
                 error_dialog.destroy()
@@ -1128,8 +1204,11 @@ class ImageLabelingApp:
 
         # 현재 탭의 '전체 체크/해제' 체크 버튼을 항상 체크 상태로 변경
         for widget in self.notebook.nametowidget(current_tab).winfo_children():
-            if isinstance(widget, ttk.Checkbutton) and widget['text'] == '전체 체크/해제':
-                widget.state(['selected'])
+            if (
+                isinstance(widget, ttk.Checkbutton)
+                and widget["text"] == "전체 체크/해제"
+            ):
+                widget.state(["selected"])
 
         for tab_id in self.notebook.tabs():
             if tab_id != current_tab:
@@ -1137,7 +1216,7 @@ class ImageLabelingApp:
                 for index, child in enumerate(tab_widget.winfo_children()):
                     if isinstance(child, ttk.Checkbutton):
                         try:
-                            if child['text'] != '전체 체크/해제':
+                            if child["text"] != "전체 체크/해제":
                                 self.predicate_checkbuttons[
                                     (
                                         int(child["text"].split(" - ")[0]),
@@ -1152,7 +1231,7 @@ class ImageLabelingApp:
                 for child in tab_widget.winfo_children():
                     if isinstance(child, ttk.Checkbutton):
                         try:
-                            if child['text'] != '전체 체크/해제':
+                            if child["text"] != "전체 체크/해제":
                                 self.predicate_checkbuttons[
                                     (
                                         int(child["text"].split(" - ")[0]),
