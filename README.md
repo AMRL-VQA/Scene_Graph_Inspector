@@ -26,6 +26,12 @@
 
 ① 일부 속성값(예: Flying, Landed, One-story building, etc.)을 바운딩박스 좌측 상단에 표시
 
+***-2024-09-06일 업데이트-***
+
+① 새로운 Triple 추가 기능 메뉴와 버튼을 추가하고 단축키 ```CTRL + N```에 할당 [Request By 박균]
+
+② Tripel 추가/수정 창에서 ```ESC``` 키를 눌르면 화면에서 나가지는 기능 추가 [Request By 최지윤]
+
 
 ## Setup
 

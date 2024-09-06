@@ -131,6 +131,7 @@ class ImageLabelingApp:
 
         self.predicate_tabs = {}
         self.predicate_checkbuttons = {}
+        self.objects_ids_with_class = []
 
         self.predicates = [
             "to the left of",
@@ -180,12 +181,21 @@ class ImageLabelingApp:
         self.root.bind(
             "<Control-a>", lambda event: self.toggle_all_checkbuttons_with_shortcut()
         )
+        # Ctrl + N 키 조합을 add_new_triple 함수에 바인딩
+        self.root.bind("<Control-n>", lambda event: self.add_new_triple())
 
         self.random_color_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Random Color", menu=self.random_color_menu)
         self.random_color_menu.add_command(
             label="Get Random Color [CTRL + R]",
             command=self.class_and_predicate_random_color,
+        )
+
+        self.add_new_triple_menu = tk.Menu(self.menu, tearoff=0)
+        self.menu.add_cascade(label="Add New Triple", menu=self.add_new_triple_menu)
+        self.add_new_triple_menu.add_command(
+            label="Add New Triple [CTRL + N]",
+            command=self.add_new_triple,
         )
 
         self.folder_path = ""
@@ -639,6 +649,15 @@ class ImageLabelingApp:
                     ]: self.toggle_all_checkbuttons(p, v),
                 )
                 select_all_checkbutton.grid(row=row, column=0, sticky="w")
+
+                # 새로운 triple 추가 버튼 생성
+                add_new_triple_button = ttk.Button(
+                    frame,
+                    text="추가",
+                    command=self.add_new_triple,
+                )
+                add_new_triple_button.grid(row=row, column=1, sticky="w")
+
                 row += 1
 
                 for triple in triples:
@@ -1058,6 +1077,9 @@ class ImageLabelingApp:
         # edit_dialog 닫기 버튼 설정 시 close_edit_dialog 호출
         edit_dialog.protocol("WM_DELETE_WINDOW", close_edit_dialog)
 
+        # ESC 키를 누르면 edit_dialog 닫고 close_edit_dialog 호출
+        edit_dialog.bind("<Escape>", lambda event: close_edit_dialog())
+
         def swap_subject_and_object(subject_id_var, object_id_var):
             tmp_subject_id = subject_id_var.get()
             subject_id_var.set(object_id_var.get())
@@ -1193,6 +1215,421 @@ class ImageLabelingApp:
         else:
             # 남아있는 edit_dialog가 없다면 메인 창에 포커스를 맞춤
             # print("focus_set on root")
+            self.root.after(100, lambda: self.root.focus_set())
+
+        # 이미지 다시 그리기
+        self.relation_triple_info_initialized = False
+        self.display_image()
+
+    def add_new_triple(self):
+        # 새로운 triplet을 추가하기 위한 Dialog 생성
+        add_triplet_dialog = tk.Toplevel(self.root)
+        add_triplet_dialog.title("Triple 추가")
+        add_triplet_dialog.focus_set()
+
+        # 열린 Dialog 창을 리스트에 추가
+        self.open_dialogs.append(add_triplet_dialog)
+
+        # subject_id, predicate, object_id 입력 칸 생성
+        # 각각의 입력 칸은 기본값으로 콤보박스의 첫 번째 값이 들어가도록 함
+        # 단 predicate은 현재 탭의 값이 들어가도록 함
+        # Predicate의 경우 self.predicates에 있는 값 중 하나만 입력 가능하도록 함
+        # subject_id, object_id는 해당 이미지의 object_list에 있는 object_id 중 하나만 입력 가능하도록 함
+        # 입력칸은 콤보박스로 구현
+        subject_id_var = tk.StringVar()
+        subject_id_var.set(self.objects_ids_with_class[0])
+        subject_id_label = tk.Label(add_triplet_dialog, text="Subject ID:")
+        subject_id_label.grid(row=0, column=0)
+
+        subject_id_entry = ttk.Combobox(
+            add_triplet_dialog,
+            textvariable=subject_id_var,
+            values=self.objects_ids_with_class,
+            width=30,
+        )
+        subject_id_entry.grid(row=0, column=1)
+
+        predicate_var = tk.StringVar()
+        predicate_var.set(self.notebook.tab(self.notebook.select(), "text"))
+        predicate_label = tk.Label(add_triplet_dialog, text="Predicate:")
+        predicate_label.grid(row=1, column=0)
+
+        predicate_entry = ttk.Combobox(
+            add_triplet_dialog,
+            textvariable=predicate_var,
+            values=self.predicates,
+            width=30,
+        )
+        predicate_entry.grid(row=1, column=1)
+
+        object_id_var = tk.StringVar()
+        object_id_var.set(self.objects_ids_with_class[0])
+        object_id_label = tk.Label(add_triplet_dialog, text="Object ID:")
+        object_id_label.grid(row=2, column=0)
+
+        object_id_entry = ttk.Combobox(
+            add_triplet_dialog,
+            textvariable=object_id_var,
+            values=self.objects_ids_with_class,
+            width=30,
+        )
+        object_id_entry.grid(row=2, column=1)
+
+        # 확인 버튼과 화살표 방향 전환 버튼 생성
+        confirm_button = ttk.Button(
+            add_triplet_dialog,
+            text="확인",
+            command=lambda: self.confirm_add_triple(
+                subject_id_var.get().split(": ")[1],
+                predicate_var.get(),
+                object_id_var.get().split(": ")[1],
+                add_triplet_dialog,
+            ),
+        )
+        confirm_button.grid(row=1, column=2)
+
+        def swap_subject_and_object(subject_id_var, object_id_var):
+            tmp_subject_id = subject_id_var.get()
+            subject_id_var.set(object_id_var.get())
+            object_id_var.set(tmp_subject_id)
+
+        reverse_arrow_button = ttk.Button(
+            add_triplet_dialog,
+            text="화살표 방향 전환",
+            command=lambda: swap_subject_and_object(subject_id_var, object_id_var),
+        )
+        reverse_arrow_button.grid(row=1, column=3)
+
+        # 추가될 값이 이미지에서 어떻게 보일지 Dialog 상에 이미지로 표시
+        image = Image.open(self.current_image)
+        draw = ImageDraw.Draw(image)
+
+        # 이미지 보여주는 캔버스 생성 후 Dialog에 추가. 이때 이미지는 1280x720 크기로 resize
+        canvas = tk.Canvas(add_triplet_dialog, width=1280, height=720)
+        canvas.grid(row=3, column=0, columnspan=4)
+        tk_image = ImageTk.PhotoImage(image.resize((1280, 720)))
+        canvas.create_image(640, 360, image=tk_image)
+        font = ImageFont.truetype("arial.ttf", 20)
+
+        # 이미지에 subject_id, object_id에 해당하는 bounding box 그리기
+        for obj in self.objects:
+            if obj["object_id"] == int(subject_id_var.get().split(": ")[1]):
+                subject_x_center, subject_y_center, subject_width, subject_height = obj[
+                    "bounding_box"
+                ]
+                subject_x1 = (subject_x_center - subject_width / 2) * image.width
+                subject_y1 = (subject_y_center - subject_height / 2) * image.height
+                subject_x2 = (subject_x_center + subject_width / 2) * image.width
+                subject_y2 = (subject_y_center + subject_height / 2) * image.height
+                draw.rectangle(
+                    (subject_x1, subject_y1, subject_x2, subject_y2),
+                    outline=self.class_colors[obj["class"]],
+                    width=3,
+                )
+                if obj["attribute"] and (
+                    obj["attribute"][0] in ["Flying", "Landed"]
+                    or obj["class"].lower() == "building"
+                ):
+                    attribute = obj["attribute"][0]
+                    draw.text(
+                        (subject_x1, subject_y1 - 22),
+                        attribute,
+                        fill=self.class_colors[obj["class"]],
+                        font=font,
+                    )
+            if obj["object_id"] == int(object_id_var.get().split(": ")[1]):
+                object_x_center, object_y_center, object_width, object_height = obj[
+                    "bounding_box"
+                ]
+                object_x1 = (object_x_center - object_width / 2) * image.width
+                object_y1 = (object_y_center - object_height / 2) * image.height
+                object_x2 = (object_x_center + object_width / 2) * image.width
+                object_y2 = (object_y_center + object_height / 2) * image.height
+                draw.rectangle(
+                    (object_x1, object_y1, object_x2, object_y2),
+                    outline=self.class_colors[obj["class"]],
+                    width=3,
+                )
+                if obj["attribute"] and (
+                    obj["attribute"][0] in ["Flying", "Landed"]
+                    or obj["class"].lower() == "building"
+                ):
+                    attribute = obj["attribute"][0]
+                    draw.text(
+                        (object_x1, object_y1 - 22),
+                        attribute,
+                        fill=self.class_colors[obj["class"]],
+                        font=font,
+                    )
+
+        abs_subject_x_center = subject_x_center * image.width
+        abs_subject_y_center = subject_y_center * image.height
+        abs_object_x_center = object_x_center * image.width
+        abs_object_y_center = object_y_center * image.height
+
+        draw.line(
+            (
+                abs_subject_x_center,
+                abs_subject_y_center,
+                abs_object_x_center,
+                abs_object_y_center,
+            ),
+            fill=self.predicate_colors[predicate_var.get()],
+            width=3,
+        )
+
+        arrow_angle = 30
+        angle = math.atan2(
+            abs_object_y_center - abs_subject_y_center,
+            abs_object_x_center - abs_subject_x_center,
+        )
+        angle1 = angle + math.radians(arrow_angle)
+        angle2 = angle + math.radians(-arrow_angle)
+        arrow_length = 20
+
+        draw.line(
+            (
+                abs_object_x_center - arrow_length * math.cos(angle1),
+                abs_object_y_center - arrow_length * math.sin(angle1),
+                abs_object_x_center,
+                abs_object_y_center,
+            ),
+            fill=self.predicate_colors[predicate_var.get()],
+            width=3,
+        )
+        draw.line(
+            (
+                abs_object_x_center - arrow_length * math.cos(angle2),
+                abs_object_y_center - arrow_length * math.sin(angle2),
+                abs_object_x_center,
+                abs_object_y_center,
+            ),
+            fill=self.predicate_colors[predicate_var.get()],
+            width=3,
+        )
+
+        tk_image = ImageTk.PhotoImage(image.resize((1280, 720)))
+        canvas.create_image(640, 360, image=tk_image)
+
+        # 값이 바뀔 때마다 이미지 다시 그리기
+        def update_image(var_name, index, operation):
+            image = Image.open(self.current_image)
+            draw = ImageDraw.Draw(image)
+
+            for obj in self.objects:
+                if obj["object_id"] == int(subject_id_var.get().split(": ")[1]):
+                    (
+                        subject_x_center,
+                        subject_y_center,
+                        subject_width,
+                        subject_height,
+                    ) = obj["bounding_box"]
+                    subject_x1 = (subject_x_center - subject_width / 2) * image.width
+                    subject_y1 = (subject_y_center - subject_height / 2) * image.height
+                    subject_x2 = (subject_x_center + subject_width / 2) * image.width
+                    subject_y2 = (subject_y_center + subject_height / 2) * image.height
+                    draw.rectangle(
+                        (subject_x1, subject_y1, subject_x2, subject_y2),
+                        outline=self.class_colors[obj["class"]],
+                        width=3,
+                    )
+                    if obj["attribute"] and (
+                        obj["attribute"][0] in ["Flying", "Landed"]
+                        or obj["class"].lower() == "building"
+                    ):
+                        attribute = obj["attribute"][0]
+                        draw.text(
+                            (subject_x1, subject_y1 - 22),
+                            attribute,
+                            fill=self.class_colors[obj["class"]],
+                            font=font,
+                        )
+                if obj["object_id"] == int(object_id_var.get().split(": ")[1]):
+                    object_x_center, object_y_center, object_width, object_height = obj[
+                        "bounding_box"
+                    ]
+                    object_x1 = (object_x_center - object_width / 2) * image.width
+                    object_y1 = (object_y_center - object_height / 2) * image.height
+                    object_x2 = (object_x_center + object_width / 2) * image.width
+                    object_y2 = (object_y_center + object_height / 2) * image.height
+                    draw.rectangle(
+                        (object_x1, object_y1, object_x2, object_y2),
+                        outline=self.class_colors[obj["class"]],
+                        width=3,
+                    )
+                    if obj["attribute"] and (
+                        obj["attribute"][0] in ["Flying", "Landed"]
+                        or obj["class"].lower() == "building"
+                    ):
+                        attribute = obj["attribute"][0]
+                        draw.text(
+                            (object_x1, object_y1 - 22),
+                            attribute,
+                            fill=self.class_colors[obj["class"]],
+                            font=font,
+                        )
+
+            abs_subject_x_center = subject_x_center * image.width
+            abs_subject_y_center = subject_y_center * image.height
+            abs_object_x_center = object_x_center * image.width
+            abs_object_y_center = object_y_center * image.height
+
+            draw.line(
+                (
+                    abs_subject_x_center,
+                    abs_subject_y_center,
+                    abs_object_x_center,
+                    abs_object_y_center,
+                ),
+                fill=self.predicate_colors[predicate_var.get()],
+                width=3,
+            )
+
+            arrow_angle = 30
+            angle = math.atan2(
+                abs_object_y_center - abs_subject_y_center,
+                abs_object_x_center - abs_subject_x_center,
+            )
+            angle1 = angle + math.radians(arrow_angle)
+            angle2 = angle + math.radians(-arrow_angle)
+            arrow_length = 20
+
+            draw.line(
+                (
+                    abs_object_x_center - arrow_length * math.cos(angle1),
+                    abs_object_y_center - arrow_length * math.sin(angle1),
+                    abs_object_x_center,
+                    abs_object_y_center,
+                ),
+                fill=self.predicate_colors[predicate_var.get()],
+                width=3,
+            )
+            draw.line(
+                (
+                    abs_object_x_center - arrow_length * math.cos(angle2),
+                    abs_object_y_center - arrow_length * math.sin(angle2),
+                    abs_object_x_center,
+                    abs_object_y_center,
+                ),
+                fill=self.predicate_colors[predicate_var.get()],
+                width=3,
+            )
+
+            # 캔버스 초기화
+            canvas.delete("all")
+
+            tk_image.paste(image.resize((1280, 720)))
+            canvas.create_image(640, 360, image=tk_image)
+            canvas.image = tk_image
+
+        # subject_id, predicate, object_id가 바뀔 때마다 이미지 다시 그리기
+        subject_id_var.trace_add("write", update_image)
+        predicate_var.trace_add("write", update_image)
+        object_id_var.trace_add("write", update_image)
+
+        # Enter 키를 누르면 confirm_button이 클릭되도록 설정
+        add_triplet_dialog.bind("<Return>", lambda event: confirm_button.invoke())
+
+        def close_add_triplet_dialog():
+            # Dialog가 닫힐 때 open_dialogs 리스트에서 해당 Dialog를 제거
+            self.open_dialogs.remove(add_triplet_dialog)
+            add_triplet_dialog.destroy()
+
+            # 만약 열린 add_triplet_dialog가 남아있다면 마지막으로 열린 Dialog에 포커스를 맞춤
+            if self.open_dialogs:
+                self.root.after(100, lambda: self.open_dialogs[-1].focus_set())
+            else:
+                # 남아있는 add_triplet_dialog가 없다면 메인 창에 포커스를 맞춤
+                self.root.after(100, lambda: self.root.focus_set())
+
+        # add_triplet_dialog 닫기 버튼 설정 시 close_add_triplet_dialog 호출
+        add_triplet_dialog.protocol("WM_DELETE_WINDOW", close_add_triplet_dialog)
+
+        # ESC 키를 누르면 add_triplet_dialog 닫고 close_add_triplet_dialog 호출
+        add_triplet_dialog.bind("<Escape>", lambda event: close_add_triplet_dialog())
+
+        # Enter 키를 누르면 confirm_button이 클릭되도록 설정
+        add_triplet_dialog.bind("<Return>", lambda event: confirm_button.invoke())
+
+        # add_triplet_dialog 실행
+        add_triplet_dialog.mainloop()
+
+    def confirm_add_triple(self, subject_id, predicate, object_id, add_triplet_dialog):
+        # 현재 선택된 탭 저장
+        self.last_selected_tab = self.notebook.index(self.notebook.select())
+
+        new_triple_key = (int(subject_id), predicate, int(object_id))
+
+        # 중복 여부 확인
+        if new_triple_key in self.predicate_checkbuttons:
+            # 중복된 triple_key가 있을 경우 에러 메시지 출력창을 띄움. 이떄 에러 메시지 출력창에는 확인 버튼만 있음
+            error_dialog = tk.Toplevel(add_triplet_dialog)
+            error_dialog.title("중복된 Triple")
+            error_dialog.geometry("300x100")
+
+            error_label = tk.Label(
+                error_dialog,
+                text="이미 존재하는 Triple입니다.",
+                font=("Helvetica", 12),
+            )
+            error_label.pack(pady=10)
+
+            # 돌아가기 버튼을 누르면 에러 메시지 출력창을 닫고 add_triplet_dialog에 포커스를 맞춤
+            def close_error_dialog():
+                error_dialog.destroy()
+                add_triplet_dialog.focus_set()
+
+            confirm_button = ttk.Button(
+                error_dialog,
+                text="돌아가기",
+                command=close_error_dialog,
+            )
+
+            # 확인버튼을 에러 메시지 출력창에 배치
+            confirm_button.pack(pady=10)
+
+            # Enter 키를 누르면 confirm_button이 클릭되도록 설정
+            error_dialog.bind("<Return>", lambda event: confirm_button.invoke())
+
+            error_dialog.focus_set()
+            return
+
+        # subject_id와 object_id가 동일한 경우 에러 메시지 출력
+        if subject_id == object_id:
+            messagebox.showerror(
+                title="동일한 ID",
+                message="Subject ID와 Object ID는 동일할 수 없습니다.",
+            )
+
+            # 다이얼로그 화면으로 돌아가기
+            add_triplet_dialog.focus_set()
+            return
+
+        # 새로운 triple_key로 self.predicate_checkbuttons 수정
+        self.predicate_checkbuttons[new_triple_key] = tk.BooleanVar()
+        self.predicate_checkbuttons[new_triple_key].set(True)
+
+        # 새로운 triple_key로 self.vqa_data 수정
+        for item in self.vqa_data:
+            if item["image"]["image_name"] == os.path.basename(self.current_image):
+                item["scene_graph"]["triples"].append(
+                    {
+                        "subject_id": int(subject_id),
+                        "predicate": predicate,
+                        "object_id": int(object_id),
+                    }
+                )
+                break
+
+        # 추가 Dialog 종료
+        self.open_dialogs.remove(add_triplet_dialog)
+        add_triplet_dialog.destroy()
+
+        # 만약 열린 add_triplet_dialog가 남아있다면 마지막으로 열린 Dialog에 포커스를 맞춤
+        if self.open_dialogs:
+            self.root.after(100, lambda: self.open_dialogs[-1].focus_set())
+        else:
+            # 남아있는 add_triplet_dialog가 없다면 메인 창에 포커스를 맞춤
             self.root.after(100, lambda: self.root.focus_set())
 
         # 이미지 다시 그리기
