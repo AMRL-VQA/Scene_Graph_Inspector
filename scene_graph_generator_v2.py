@@ -64,11 +64,13 @@ def determine_predicate(sub, obj):
             if is_overlap(sub, obj) == '1->2 perfect':
                 predicates.append("located in")
     else:
-        if not obj['class'] in doors:
+        if not sub['class'] in portables and\
+            not obj['class'] in portables and\
+            not obj['class'] in portables:
             # x축 비교: 왼쪽, 오른쪽 판단
-            if sub_x_min > obj_x_center:
+            if obj_x_center < sub_x_min and obj_x_max < sub_x_center:
                 predicates.append("to the right of")
-            elif sub_x_max < obj_x_center:
+            elif sub_x_center < obj_x_min and sub_x_max < obj_x_center:
                 predicates.append("to the left of")
             
             sub_att = None
@@ -88,9 +90,9 @@ def determine_predicate(sub, obj):
                 elif sub_att == 'Flying' and\
                     obj_att == 'Flying':
                     predicates.append('both flying')                   
-            elif sub_y_min > obj_y_center:
+            elif obj_y_center < sub_y_min and obj_y_max < sub_y_center:
                 predicates.append("behind")
-            elif sub_y_max < obj_y_center:
+            elif sub_y_center < obj_y_min and sub_y_max < obj_y_center:
                 predicates.append("in front of")
 
     # 사람에 대한 판단 - [inside, holding, riding]
