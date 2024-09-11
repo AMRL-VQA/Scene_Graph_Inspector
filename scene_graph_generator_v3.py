@@ -137,6 +137,7 @@ def generate_triple(sub, obj, predicate):
 def prune_predicates(triples, num_criticals):
     num_triples = len(triples)
     sum_criticals = sum(num_criticals.values())
+    criticals = ['located in', 'holding']
     
     if num_triples <= 30:
         return triples
@@ -160,11 +161,12 @@ def prune_predicates(triples, num_criticals):
         if all(diff_count[pred] == 0 for pred in num_criticals if pred in diff_count):
             return triples
         
-        # 가장 빈도수가 많은 predicate 그룹 선택
+        # 가장 빈도수가 많은 predicate 그룹 선택, located in 과 holding은 제외
         for pred in predicate_count:
-            if diff_count[pred] > max_count:
-                max_count = predicate_count[pred]
-                freq_pred = pred
+            if pred not in criticals:
+                if diff_count[pred] > max_count:
+                    max_count = predicate_count[pred]
+                    freq_pred = pred
 
         # 전부 다 0개면 바로 종료
         if max_count == 0:
@@ -418,7 +420,7 @@ def process_scene_graph(scene_graph_file_name, ambiguity_file_name):
                         if not (predicate == 'both flying' or predicates == 'Multi-story'):
                             triple = generate_triple(sub, obj, predicate)
                             if triple not in triples:
-                                # triples.append(triple)
+                                triples.append(triple)
                                 pass
                         if predicate in ambiguities:
                             if not image_id in image_ambiguities:
